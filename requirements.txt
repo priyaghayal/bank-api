@@ -3,3 +3,4 @@ sqlalchemy
 pytest
 uvicorn
 httpx
+dotenv

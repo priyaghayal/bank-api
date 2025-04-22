@@ -1,57 +1,23 @@
+import os
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, Float, ForeignKey, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from dotenv import load_dotenv
+from database import get_db, Base, engine
+from models import Customer, Account, Transaction
+from schemas import CustomerCreate, AccountCreate, Transfer
+from utils import ERROR_MESSAGES
 
-# Database setup
-DATABASE_URL = "sqlite:///./bank.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# Load environment variables
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Models
-class Customer(Base):
-    __tablename__ = "customers"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-
-class Account(Base):
-    __tablename__ = "accounts"
-    id = Column(Integer, primary_key=True, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"))
-    balance = Column(Float, default=0.0)
-
-class Transaction(Base):
-    __tablename__ = "transactions"
-    id = Column(Integer, primary_key=True, index=True)
-    from_account = Column(Integer, ForeignKey("accounts.id"))
-    to_account = Column(Integer, ForeignKey("accounts.id"))
-    amount = Column(Float)
+# Initialize FastAPI app
+app = FastAPI()
 
 # Create tables
 Base.metadata.create_all(bind=engine)
-
-# Pydantic Schemas
-class CustomerCreate(BaseModel):
-    name: str
-
-class AccountCreate(BaseModel):
-    initial_deposit: float
-
-class Transfer(BaseModel):
-    from_account: int
-    to_account: int
-    amount: float
-
-# FastAPI app
-app = FastAPI()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.post("/customers/")
 def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
@@ -65,14 +31,14 @@ def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
 def get_customer(customer_id: int, db: Session = Depends(get_db)):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail=ERROR_MESSAGES["customer_not_found"])
     return customer
 
 @app.post("/customers/{customer_id}/accounts/")
 def create_account(customer_id: int, account: AccountCreate, db: Session = Depends(get_db)):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail=ERROR_MESSAGES["customer_not_found"])
     
     new_account = Account(customer_id=customer_id, balance=account.initial_deposit)
     db.add(new_account)
@@ -92,9 +58,9 @@ def transfer_funds(transfer: Transfer, db: Session = Depends(get_db)):
     to_acc = db.query(Account).filter(Account.id == transfer.to_account).first()
     
     if not from_acc or not to_acc:
-        raise HTTPException(status_code=404, detail="One or both accounts not found")
+        raise HTTPException(status_code=404, detail=ERROR_MESSAGES["account_not_found"])
     if from_acc.balance < transfer.amount:
-        raise HTTPException(status_code=400, detail="Insufficient funds")
+        raise HTTPException(status_code=400, detail=ERROR_MESSAGES["insufficient_funds"])
     
     from_acc.balance -= transfer.amount
     to_acc.balance += transfer.amount
@@ -107,7 +73,7 @@ def transfer_funds(transfer: Transfer, db: Session = Depends(get_db)):
 def get_balance(account_id: int, db: Session = Depends(get_db)):
     account = db.query(Account).filter(Account.id == account_id).first()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail=ERROR_MESSAGES["account_not_found"])
     return {"account_id": account.id, "balance": account.balance}
 
 @app.get("/accounts/{account_id}/transactions/")

@@ -62,3 +62,5 @@ You are expected to design any other required models and routes for your API.
 Please organize, design, test and document your code so that it could be easily reviewed by a colleague - then push your changes to the master branch. After you have pushed your code, you may submit the assignment on the assignment page.
 
 All the best and happy coding,
+
+The Entrix Team
