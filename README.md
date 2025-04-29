@@ -6,7 +6,7 @@ This is a simple banking API built using FastAPI. It allows creating customers, 
 
 1. Clone the repository:
    ```sh
-   git clone <your-repo-url>
+   git clone https://github.com/priyaghayal/bank-api.git
    cd banking-api
    ```
 
